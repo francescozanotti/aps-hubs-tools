@@ -547,8 +547,11 @@ function prepareFilesTree() {
             'versions': {
                 'icon': 'glyphicon glyphicon-time'
             },
-            'view': {
+            'view3d': {
                 'icon': 'glyphicon glyphicon-eye-open'
+            },
+            'sheet': {
+                'icon': 'glyphicon glyphicon-list'
             }
         },
         "plugins": ["types", "contextmenu", "checkbox"], // Added checkbox plugin for view selection
@@ -561,12 +564,19 @@ function prepareFilesTree() {
             'select_node': false,
             'items': filesTreeContextMenu
         }
+    }).bind("before_check.jstree", function (evt, data) {
+        // Only allow checking view3d and sheet nodes
+        if (data.node.type !== 'view3d' && data.node.type !== 'sheet') {
+            evt.preventDefault();
+            return false;
+        }
     }).bind("check_node.jstree uncheck_node.jstree", function (evt, data) {
-        // Handle view selection/deselection
-        if (data.node.type === 'view') {
-            console.log("View " + data.node.text + " (" + data.node.id + ") - checked: " + data.node.state.checked);
+        // Handle view/sheet selection/deselection
+        if (data.node.type === 'view3d' || data.node.type === 'sheet') {
+            var itemType = data.node.type === 'view3d' ? '3D View' : 'Sheet';
+            console.log(itemType + " " + data.node.text + " (" + data.node.id + ") - checked: " + data.node.state.checked);
 
-            // Store selected views in MyVars
+            // Store selected views/sheets in MyVars
             if (!MyVars.selectedViews) {
                 MyVars.selectedViews = {};
             }
@@ -577,7 +587,14 @@ function prepareFilesTree() {
                 delete MyVars.selectedViews[data.node.id];
             }
 
-            console.log("Total selected views: " + Object.keys(MyVars.selectedViews).length);
+            var view3dCount = Object.keys(MyVars.selectedViews).filter(function(id) {
+                return MyVars.selectedViews[id].type === 'view3d';
+            }).length;
+            var sheetCount = Object.keys(MyVars.selectedViews).filter(function(id) {
+                return MyVars.selectedViews[id].type === 'sheet';
+            }).length;
+
+            console.log("Selected: " + view3dCount + " 3D views, " + sheetCount + " sheets");
         }
     }).bind("select_node.jstree", function (evt, data) {
         // Clean up previous instance
@@ -644,50 +661,54 @@ function prepareFilesTree() {
 }
 
 function loadViewsForVersion(versionNode, selectedUrn) {
-    console.log("Loading 3D views for URN: " + selectedUrn);
+    console.log("Loading 3D views and sheets for URN: " + selectedUrn);
 
     $.ajax({
         url: '/md/views/' + encodeURIComponent(selectedUrn),
         type: 'GET',
-        success: function(views) {
-            console.log("Received " + views.length + " views");
+        success: function(items) {
+            console.log("Received " + items.length + " items");
 
-            if (views.length === 0) {
-                console.log("No views found for this version");
+            if (items.length === 0) {
+                console.log("No views or sheets found for this version");
                 return;
             }
 
             // Get the jstree instance
             var tree = $('#apsFiles').jstree(true);
 
-            // Remove existing view children if any
+            // Remove existing view/sheet children if any
             if (versionNode.children) {
                 versionNode.children.forEach(function(childId) {
                     var child = tree.get_node(childId);
-                    if (child && child.type === 'view') {
+                    if (child && (child.type === 'view3d' || child.type === 'sheet')) {
                         tree.delete_node(childId);
                     }
                 });
             }
 
-            // Add views as children of the version node
-            views.forEach(function(view) {
-                var viewNode = {
-                    id: view.id,
+            // Add views and sheets as children of the version node
+            items.forEach(function(item) {
+                var nodeIcon = item.type === 'sheet' ? 'glyphicon glyphicon-list' : 'glyphicon glyphicon-eye-open';
+
+                var itemNode = {
+                    id: item.id,
                     parent: versionNode.id,
-                    text: view.name,
-                    type: 'view',
-                    icon: 'glyphicon glyphicon-eye-open',
-                    original: view
+                    text: item.name,
+                    type: item.type, // 'view3d' or 'sheet'
+                    icon: nodeIcon,
+                    original: item
                 };
 
-                tree.create_node(versionNode.id, viewNode);
+                tree.create_node(versionNode.id, itemNode);
             });
 
-            // Open the version node to show views
+            // Open the version node to show views and sheets
             tree.open_node(versionNode.id);
 
-            console.log("Added " + views.length + " views to the tree");
+            var view3dCount = items.filter(function(i) { return i.type === 'view3d'; }).length;
+            var sheetCount = items.filter(function(i) { return i.type === 'sheet'; }).length;
+            console.log("Added " + view3dCount + " 3D views and " + sheetCount + " sheets to the tree");
         },
         error: function(xhr, status, error) {
             console.log("Error loading views: " + error);

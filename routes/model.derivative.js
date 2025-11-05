@@ -97,35 +97,47 @@ router.get('/hierarchy', function (req, res) {
 });
 
 /////////////////////////////////////////////////////////////////
-// Get the list of 3D views available in the model file
-// This extracts views from the metadata
+// Get the list of 3D views and sheets available in the model file
+// This extracts views and sheets from the metadata
 /////////////////////////////////////////////////////////////////
 router.get('/views/:urn', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
     derivatives.getMetadata(req.params.urn, {}, null, req.session.internal)
         .then(function (data) {
-            console.log('Getting views for urn: ' + req.params.urn);
+            console.log('Getting views and sheets for urn: ' + req.params.urn);
 
-            // Extract views from metadata
-            var views = [];
+            // Extract views and sheets from metadata
+            var items = [];
             if (data.body.data && data.body.data.metadata) {
                 data.body.data.metadata.forEach(function(metadata, index) {
-                    views.push({
+                    // Determine if this is a sheet or 3D view based on role
+                    var role = metadata.role || '';
+                    var isSheet = role.toLowerCase().includes('sheet') ||
+                                  role.toLowerCase().includes('2d') ||
+                                  metadata.name && (metadata.name.toLowerCase().includes('sheet') ||
+                                                   metadata.name.toLowerCase().includes('plan') ||
+                                                   metadata.name.toLowerCase().includes('elevation') ||
+                                                   metadata.name.toLowerCase().includes('section'));
+
+                    items.push({
                         guid: metadata.guid,
-                        name: metadata.name || ('View ' + (index + 1)),
+                        name: metadata.name || (isSheet ? ('Sheet ' + (index + 1)) : ('View ' + (index + 1))),
                         id: metadata.guid, // Use guid as ID for selection
-                        type: 'view'
+                        type: isSheet ? 'sheet' : 'view3d',
+                        role: role
                     });
                 });
             }
 
-            console.log('Found ' + views.length + ' views');
-            res.json(views);
+            console.log('Found ' + items.length + ' items (' + items.filter(function(i) { return i.type === 'view3d'; }).length + ' 3D views, ' + items.filter(function(i) { return i.type === 'sheet'; }).length + ' sheets)');
+            res.json(items);
         })
         .catch(function (error) {
-            console.log('Error fetching views: ' + error);
-            res.status(error.statusCode).end(error.statusMessage);
+            console.log('Error fetching views: ' + error.statusCode + ' ' + error.statusMessage);
+            var statusCode = error.statusCode || 500;
+            var statusMessage = error.statusMessage || 'Internal Server Error';
+            res.status(statusCode).json({ error: statusMessage });
         });
 });
 
