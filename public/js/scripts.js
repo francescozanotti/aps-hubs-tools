@@ -1,5 +1,6 @@
 var MyVars = {
-    keepTrying: true
+    keepTrying: true,
+    selectedViews: {}
 };
 
 $(document).ready(function () {
@@ -545,12 +546,38 @@ function prepareFilesTree() {
             },
             'versions': {
                 'icon': 'glyphicon glyphicon-time'
+            },
+            'view': {
+                'icon': 'glyphicon glyphicon-eye-open'
             }
         },
-        "plugins": ["types", "contextmenu"], // let's not use sort or state: , "state" and "sort"],
+        "plugins": ["types", "contextmenu", "checkbox"], // Added checkbox plugin for view selection
+        'checkbox': {
+            'keep_selected_style': false,
+            'three_state': false,
+            'whole_node': false
+        },
         'contextmenu': {
             'select_node': false,
             'items': filesTreeContextMenu
+        }
+    }).bind("check_node.jstree uncheck_node.jstree", function (evt, data) {
+        // Handle view selection/deselection
+        if (data.node.type === 'view') {
+            console.log("View " + data.node.text + " (" + data.node.id + ") - checked: " + data.node.state.checked);
+
+            // Store selected views in MyVars
+            if (!MyVars.selectedViews) {
+                MyVars.selectedViews = {};
+            }
+
+            if (data.node.state.checked) {
+                MyVars.selectedViews[data.node.id] = data.node.original;
+            } else {
+                delete MyVars.selectedViews[data.node.id];
+            }
+
+            console.log("Total selected views: " + Object.keys(MyVars.selectedViews).length);
         }
     }).bind("select_node.jstree", function (evt, data) {
         // Clean up previous instance
@@ -597,6 +624,9 @@ function prepareFilesTree() {
                 ", storage = " + data.node.original.storage,
                 ", wipid = " + data.node.original.wipid
             );
+
+            // Fetch 3D views for this version
+            loadViewsForVersion(data.node, MyVars.selectedUrn);
         } else {
             $("#deleteManifest").attr('disabled', 'disabled');
             $("#uploadFile").attr('disabled', 'disabled');
@@ -609,6 +639,58 @@ function prepareFilesTree() {
             // data belongs to the clicked model
             $('#apsHierarchy').empty().jstree('destroy');
             $('#apsProperties').empty().jstree('destroy');
+        }
+    });
+}
+
+function loadViewsForVersion(versionNode, selectedUrn) {
+    console.log("Loading 3D views for URN: " + selectedUrn);
+
+    $.ajax({
+        url: '/md/views/' + encodeURIComponent(selectedUrn),
+        type: 'GET',
+        success: function(views) {
+            console.log("Received " + views.length + " views");
+
+            if (views.length === 0) {
+                console.log("No views found for this version");
+                return;
+            }
+
+            // Get the jstree instance
+            var tree = $('#apsFiles').jstree(true);
+
+            // Remove existing view children if any
+            if (versionNode.children) {
+                versionNode.children.forEach(function(childId) {
+                    var child = tree.get_node(childId);
+                    if (child && child.type === 'view') {
+                        tree.delete_node(childId);
+                    }
+                });
+            }
+
+            // Add views as children of the version node
+            views.forEach(function(view) {
+                var viewNode = {
+                    id: view.id,
+                    parent: versionNode.id,
+                    text: view.name,
+                    type: 'view',
+                    icon: 'glyphicon glyphicon-eye-open',
+                    original: view
+                };
+
+                tree.create_node(versionNode.id, viewNode);
+            });
+
+            // Open the version node to show views
+            tree.open_node(versionNode.id);
+
+            console.log("Added " + views.length + " views to the tree");
+        },
+        error: function(xhr, status, error) {
+            console.log("Error loading views: " + error);
         }
     });
 }

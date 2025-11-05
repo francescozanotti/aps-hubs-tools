@@ -97,6 +97,39 @@ router.get('/hierarchy', function (req, res) {
 });
 
 /////////////////////////////////////////////////////////////////
+// Get the list of 3D views available in the model file
+// This extracts views from the metadata
+/////////////////////////////////////////////////////////////////
+router.get('/views/:urn', function (req, res) {
+    var derivatives = new apsSDK.DerivativesApi();
+
+    derivatives.getMetadata(req.params.urn, {}, null, req.session.internal)
+        .then(function (data) {
+            console.log('Getting views for urn: ' + req.params.urn);
+
+            // Extract views from metadata
+            var views = [];
+            if (data.body.data && data.body.data.metadata) {
+                data.body.data.metadata.forEach(function(metadata, index) {
+                    views.push({
+                        guid: metadata.guid,
+                        name: metadata.name || ('View ' + (index + 1)),
+                        id: metadata.guid, // Use guid as ID for selection
+                        type: 'view'
+                    });
+                });
+            }
+
+            console.log('Found ' + views.length + ' views');
+            res.json(views);
+        })
+        .catch(function (error) {
+            console.log('Error fetching views: ' + error);
+            res.status(error.statusCode).end(error.statusMessage);
+        });
+});
+
+/////////////////////////////////////////////////////////////////
 // Get the properties for all the components inside the model
 // with the given guid and file urn
 /////////////////////////////////////////////////////////////////
