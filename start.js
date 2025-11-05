@@ -16,6 +16,8 @@
 // UNINTERRUPTED OR ERROR FREE.
 /////////////////////////////////////////////////////////////////////
 
+require('dotenv').config();
+
 const express = require('express');
 const session = require('cookie-session');
 var config = require('./config');
@@ -31,7 +33,7 @@ app.set('trust proxy', 1);
 
 app.use(cookieParser());
 
-app.set('port', process.env.PORT || 3000);
+app.set('port', process.env.APS_PORT || 3000);
 app.use('/', express.static(__dirname + '/public')); // redirect static calls
 app.use('/js', express.static(__dirname + '/../node_modules/bootstrap/dist/js')); // redirect static calls
 app.use('/js', express.static(__dirname + '/../node_modules/jquery/dist')); // redirect static calls
