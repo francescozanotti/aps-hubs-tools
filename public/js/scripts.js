@@ -711,7 +711,14 @@ function loadViewsForVersion(versionNode, selectedUrn) {
             console.log("Added " + view3dCount + " 3D views and " + sheetCount + " sheets to the tree");
         },
         error: function(xhr, status, error) {
-            console.log("Error loading views: " + error);
+            console.log("Error loading views: " + status + " - " + error);
+            if (xhr.status === 401) {
+                console.log("Session expired or invalid token. Please log in again.");
+            } else if (xhr.status === 404) {
+                console.log("Views/sheets not available for this version");
+            } else {
+                console.log("Failed to load views/sheets for this version");
+            }
         }
     });
 }
