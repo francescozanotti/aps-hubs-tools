@@ -89,11 +89,6 @@ $(document).ready(function () {
             fillFormats();
         }
     });
-
-    $('#progressInfo').click(function() {
-        MyVars.keepTrying = false;
-        showProgress("Translation stopped", 'failed');
-    });
 });
 
 function base64encode(str) {
