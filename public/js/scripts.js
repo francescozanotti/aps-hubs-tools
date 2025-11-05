@@ -462,96 +462,9 @@ function fillFormats() {
         var apsFormats = $("#apsFormats");
         apsFormats.data("apsFormats", data);
 
-        var download = $("#downloadExport");
-        download.click(function() {
-            MyVars.keepTrying = true;
-
-            var elem = $("#apsHierarchy");
-            var tree = elem.jstree();
-            var rootNodeId = tree.get_node('#').children[0];
-            var rootNode = tree.get_node(rootNodeId);
-
-            var format = $("#apsFormats").val();
-            var urn = MyVars.selectedUrn;
-            var guid = MyVars.selectedGuid;
-            var fileName = rootNode.text + "." + format;
-            var rootFileName = MyVars.rootFileName;
-            var nodeIds = elem.jstree("get_checked", null, true);
-
-            // Only OBJ supports subcomponent selection
-            // using objectId's
-            var objectIds = null;
-            if (format === 'obj') {
-                objectIds = [-1];
-                if (nodeIds.length) {
-                    objectIds = [];
-
-                    $.each(nodeIds, function (index, value) {
-                        objectIds.push(parseInt(value, 10));
-                    });
-                }
-            }
-
-            // The rest can be exported with a single function
-            askForFileType(format, urn, guid, objectIds, rootFileName, MyVars.fileExtType, function (res) {
-                if (format === 'thumbnail') {
-                    getThumbnail(urn);
-
-                    return;
-                }
-
-                // Find the appropriate obj part
-                for (var derId in res.derivatives) {
-                    var der = res.derivatives[derId];
-                    if (der.outputType === format) {
-                        // found it, now get derivative urn
-                        // leave objectIds parameter undefined
-                        var derUrns = getDerivativeUrns(der, format, false, objectIds);
-
-                        // url encode it
-                        if (derUrns) {
-                            derUrns[0] = encodeURIComponent(derUrns[0]);
-
-                            downloadDerivative(urn, derUrns[0], fileName);
-
-                            // in case of obj format, also try to download the material
-                            if (format === 'obj') {
-                                // The MTL file needs to have the exact name that it has on OSS
-                                // because that's how it's referenced from the OBJ file
-                                var ossName = decodeURIComponent(derUrns[0]);
-                                var ossNameParts = ossName.split("/");
-                                // Get the last element
-                                ossName = ossNameParts[ossNameParts.length - 1];
-
-                                downloadDerivative(urn, derUrns[0].replace('.obj' , '.mtl'), ossName.replace('.obj', '.mtl'));
-                            }
-                        } else {
-                            showProgress("Could not find specific OBJ file", "failed");
-                            console.log("askForFileType, Did not find the OBJ translation with the correct list of objectIds");
-                        }
-
-                        return;
-                    }
-                }
-
-                showProgress("Could not find exported file", "failed");
-                console.log("askForFileType, Did not find " + format + " in the manifest");
-            });
-
-        });
-
-        var deleteManifest = $("#deleteManifest");
-        deleteManifest.click(function() {
-            var urn = MyVars.selectedUrn;
-
-            cleanupViewer();
-
-            delManifest(urn, function() { 
-                showProgress("Manifest deleted", "success")
-            }, function() {
-                showProgress("Failed to delete manifest", "failed")
-            });
-        });
+        // Translation and export functionality disabled - no download or delete manifest features
+        // This prevents spending credits on translation services
+        console.log("Translation functionality disabled - export and manifest deletion are not available");
     });
 }
 
@@ -663,21 +576,7 @@ function prepareFilesTree() {
         MyVars.selectedNode = data.node;
 
         if (data.node.type === 'versions') {
-            $("#deleteManifest").removeAttr('disabled');
             $("#uploadFile").removeAttr('disabled');
-
-            MyVars.keepTrying = true;
-
-            // Clear hierarchy tree
-            $('#apsHierarchy').empty().jstree('destroy');
-
-            // Clear properties tree
-            $('#apsProperties').empty().jstree('destroy');
-
-            // Delete cached data
-            $('#apsProperties').data('apsProperties', null);
-
-            updateFormats(data.node.original.fileType);
 
             // Store info on selected file
             MyVars.rootFileName = data.node.original.rootFileName;
@@ -692,24 +591,17 @@ function prepareFilesTree() {
                 MyVars.selectedUrn = base64encode(data.node.original.storage);
             }
 
-            // Fill hierarchy tree
-            // format, urn, guid, objectIds, rootFileName, fileExtType
-            showHierarchy(
-                MyVars.selectedUrn,
-                null,
-                null,
-                MyVars.rootFileName,
-                MyVars.fileExtType
-            );
-            console.log(
-                "data.node.original.storage = " + data.node.original.storage,
-                "data.node.original.wipid = " + data.node.original.wipid,
-                ", data.node.original.fileName = " + data.node.original.fileName,
-                ", data.node.original.fileExtType = " + data.node.original.fileExtType
-            );
+            // Translation disabled - hierarchy, properties, and export features are not available
+            // Clear any previous hierarchy/properties displays
+            $('#apsHierarchy').empty().jstree('destroy');
+            $('#apsProperties').empty().jstree('destroy');
+            $('#apsProperties').data('apsProperties', null);
 
-            // Show in viewer
-            //initializeViewer(data.node.data);
+            console.log(
+                "Version selected: " + data.node.original.fileName,
+                ", storage = " + data.node.original.storage,
+                ", wipid = " + data.node.original.wipid
+            );
         } else {
             $("#deleteManifest").attr('disabled', 'disabled');
             $("#uploadFile").attr('disabled', 'disabled');
