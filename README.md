@@ -1,4 +1,4 @@
-# Hubs Tools
+# Based on Hubs Tools
 
 [![Node.js](https://img.shields.io/badge/Node.js-6.2-blue.svg)](https://nodejs.org/)
 [![npm](https://img.shields.io/badge/npm-5.5.1-blue.svg)](https://www.npmjs.com/)
@@ -20,6 +20,16 @@ This sample shows how you can use the **Model Derivative API** and what you can 
 ## Live version
 
 See it live at [https://derivatives.autodesk.io](https://derivatives.autodesk.io) 
+
+## Hierarchy Tree
+
+  The hierarchy is:
+  1. Hubs (top-level containers)
+  2. Folders (what you can't name - these are the organizational containers within a hub)
+  3. Projects (within folders)
+  4. Items (files - like your Revit/IFC files)
+  5. Versions (file versions)
+  6. Views/Sheets (3D views and sheets from the file)
 
 # Setup
 
