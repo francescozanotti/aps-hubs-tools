@@ -7,61 +7,9 @@ $(document).ready(function () {
     //debugger;
     $('#hiddenFrame').attr('src', '');
 
-    // Make sure that "change" event is fired
-    // even if same file is selected for upload
-    $("#apsUploadHidden").click(function (evt) {
-        evt.target.value = "";
-    });
-
     $("#refreshTree").click(function (evt) {
         $("#apsFiles").jstree(true).refresh()
     });
-
-    $("#apsUploadHidden").change(function(evt) {
-
-        showProgress("Uploading file... ", "inprogress");
-        var data = new FormData () ;
-        var fileName = this.value;
-        data.append (0, this.files[0]) ;
-        $.ajax ({
-            url: '/dm/files',
-            type: 'POST',
-            headers: { 
-                'x-file-name': fileName, 
-                'wip-href': MyVars.selectedNode.original.href, 
-                'wip-id': MyVars.selectedNode.original.wipid,  
-                'is-attachment': MyVars.isAttachment 
-            },
-            data: data,
-            cache: false,
-            processData: false, // Don't process the files
-            contentType: false, // Set content type to false as jQuery will tell the server its a query string request
-            complete: null
-        }).done (function (data) {
-            console.log('Uploaded file "' + data.fileName + '" with urn = ' + data.objectId);
-
-            // Refresh file tree
-            $('#apsFiles').jstree("refresh");
-
-            showProgress("Upload successful", "success");
-        }).fail (function (xhr, ajaxOptions, thrownError) {
-            alert(fileName + ' upload failed!') ;
-            showProgress("Upload failed", "failed");
-        }) ;
-    });
-
-    $("#uploadFile").click(function(evt) {
-        evt.preventDefault();
-        MyVars.isAttachment = true;
-        $("#apsUploadHidden").trigger("click");
-    });
-
-    $("#uploadFile2").click(function(evt) {
-        evt.preventDefault();
-        MyVars.isAttachment = false;
-        $("#apsUploadHidden").trigger("click");
-    });
-
 
     // Get the tokens
     get3LegToken(function(token) {
@@ -602,21 +550,9 @@ function prepareFilesTree() {
 
         console.log("Selected item's ID/URN: " + data.node.original.wipid);
 
-        // Disable the hierarchy related controls for the time being
-        $("#apsFormats").attr('disabled', 'disabled');
-        $("#downloadExport").attr('disabled', 'disabled');
-
-        if (data.node.type === 'folders') {
-            $("#uploadFile2").removeAttr('disabled');
-        } else {
-            $("#uploadFile2").attr('disabled', 'disabled');
-        }
-
         MyVars.selectedNode = data.node;
 
         if (data.node.type === 'versions') {
-            $("#uploadFile").removeAttr('disabled');
-
             // Store info on selected file
             MyVars.rootFileName = data.node.original.rootFileName;
             MyVars.fileName = data.node.original.fileName;
@@ -630,7 +566,7 @@ function prepareFilesTree() {
                 MyVars.selectedUrn = base64encode(data.node.original.storage);
             }
 
-            // Translation disabled - hierarchy, properties, and export features are not available
+            // Translation disabled - hierarchy and properties are not available
             // Clear any previous hierarchy/properties displays
             $('#apsHierarchy').empty().jstree('destroy');
             $('#apsProperties').empty().jstree('destroy');
@@ -645,9 +581,6 @@ function prepareFilesTree() {
             // Fetch 3D views for this version
             loadViewsForVersion(data.node, MyVars.selectedUrn);
         } else {
-            $("#deleteManifest").attr('disabled', 'disabled');
-            $("#uploadFile").attr('disabled', 'disabled');
-
             // Just open the children of the node, so that it's easier
             // to find the actual versions
             $("#apsFiles").jstree("open_node", data.node);
@@ -723,105 +656,8 @@ function loadViewsForVersion(versionNode, selectedUrn) {
     });
 }
 
-function downloadAttachment(href, attachmentVersionId) {
-    console.log("downloadAttachment for href=" + href);
-    // fileName = file name you want to use for download
-    var url = window.location.protocol + "//" + window.location.host +
-        "/dm/attachments/" + encodeURIComponent(attachmentVersionId) + "?href=" + encodeURIComponent(href);
-
-    window.open(url,'_blank');
-}
-
-function downloadFile(href) {
-    console.log("downloadFile for href=" + href);
-    // fileName = file name you want to use for download
-    var url = window.location.protocol + "//" + window.location.host +
-        "/dm/files/" + encodeURIComponent(href);
-
-    window.open(url,'_blank');
-}
-
-function deleteAttachment(href, attachmentVersionId) {
-    alert("Functionality not available yet");
-    return;
-
-    console.log("deleteAttachment for href=" + href);
-    $.ajax({
-        url: '/dm/attachments/' + encodeURIComponent(attachmentVersionId),
-        headers: { 'wip-href': href },
-        type: 'DELETE'
-    }).done(function (data) {
-        console.log(data);
-        if (data.status === 'success') {
-            if (onsuccess !== undefined) {
-                onsuccess(data);
-            }
-        }
-    }).fail(function(err) {
-        console.log('DELETE /api/manifest call failed\n' + err.statusText);
-    });
-}
-
 function filesTreeContextMenu(node, callback) {
-    if (node.type === 'versions') {
-        $.ajax({
-            url: '/dm/attachments',
-            data: {href: node.original.href},
-            type: 'GET',
-            success: function (data) {
-                var menuItems = {};
-                menuItems["download"] = {
-                    "label": "Download",
-                    "action": function (obj) {
-                        downloadFile(obj.item.href);
-                    },
-                    "href": node.original.href
-                };
-                data.data.forEach(function (item) {
-                    if (item.meta.extension.type === "auxiliary:autodesk.core:Attachment") {
-                        var menuItem = {
-                            "label": item.displayName,
-                            "action": function (obj) {
-                                alert(obj.item.label + " with versionId = " + obj.item.versionId);
-                            },
-                            "versionId": item.id,
-                            "submenu" : {
-                                "open": {
-                                    "label": "Open",
-                                    "action": function (obj) {
-                                        downloadAttachment(obj.item.href, obj.item.versionId);
-                                    },
-                                    "versionId": item.id,
-                                    "href": node.original.href
-                                },
-                                "delete": {
-                                    "label": "Delete",
-                                    "action": function (obj) {
-                                        deleteAttachment(obj.item.href, obj.item.versionId);
-                                    },
-                                    "versionId": item.id,
-                                    "href": node.original.href
-                                }
-                            }
-                        };
-
-                        menuItems = menuItems || {};
-                        menuItems[item.id] = menuItem;
-                    }
-                })
-
-                if (Object.keys(menuItems).length < 2) {
-                    menuItems["noItem"] = {
-                        "label": "No attachments", 
-                        "action": function () {}
-                    };
-                } 
-                    
-                callback(menuItems);
-            }
-        });
-    }
-
+    // Context menu disabled - upload/attachment functionality removed
     return;
 }
 
