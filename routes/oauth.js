@@ -85,52 +85,46 @@ router.get('/callback/oauth', function (req, res) {
   console.log('got back csrf: ' + csrf);
 
   if (!csrf || csrf !== req.session.csrf) {
-    console.log('CSRF validation failed!');
     res.status(401).end();
     return;
   }
 
   var code = req.query.code;
   if (!code) {
-    console.log('No authorization code received!');
     res.redirect('/');
-    return;
   }
-
-  console.log('Authorization code: ' + code);
 
   // first get a full scope token for internal use (server-side)
   var req1 = new apsSDK.AuthClientThreeLeggedV2(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopeInternal);
-  console.log('Getting internal token with scopes: ' + config.scopeInternal.join(', '));
-
+  console.log(code);
   req1.getToken(code)
     .then(function (internalCredentials) {
-      console.log('Successfully got internal token');
 
       req.session.internal = {
-        access_token: internalCredentials.access_token,
-        expires_in: internalCredentials.expires_in,
-        refresh_token: internalCredentials.refresh_token
-      }
-
-      console.log('Internal token (full scope): ' + internalCredentials.access_token); // debug
-      console.log('Internal refresh token: ' + internalCredentials.refresh_token);
-
-      // For the public token, we'll use the internal token with viewables:read scope
-      // The viewer only needs viewables:read access
-      req.session.public = {
         access_token: internalCredentials.access_token,
         expires_in: internalCredentials.expires_in
       }
 
-      console.log('Public token (using internal token): ' + internalCredentials.access_token); // debug
-      console.log('Redirecting to home page');
-      res.redirect('/');
+      console.log('Internal token (full scope): ' + internalCredentials.access_token); // debug
+
+      // then refresh and get a limited scope token that we can send to the client
+      var req2 = new apsSDK.AuthClientThreeLeggedV2(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopePublic);
+      req2.refreshToken(internalCredentials, config.scopePublic)
+        .then(function (publicCredentials) {
+          req.session.public = {
+            access_token: publicCredentials.access_token,
+            expires_in: publicCredentials.expires_in
+          }
+
+          console.log('Public token (limited scope): ' + publicCredentials.access_token); // debug
+          res.redirect('/');
+        })
+        .catch(function (error) {
+          res.end(JSON.stringify(error));
+        });
     })
     .catch(function (error) {
-      console.log('ERROR: Failed to get initial token');
-      console.log('Error details: ' + JSON.stringify(error));
-      res.status(500).end(JSON.stringify(error));
+      res.end(JSON.stringify(error));
     });
 });
 
